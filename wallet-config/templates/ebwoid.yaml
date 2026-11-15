@@ -1,0 +1,20 @@
+name: ebwoid
+description: Owner identification data of Acme Logistics GmbH (EBWOID rulebook v1.1.0)
+format: sdjwt
+vct: uri:eu.ebw.oid.1
+category: pub-eaa
+exp: 8760h
+rulebook: https://github.com/webuild-consortium/webuild-attestation-rulebooks-catalog/tree/adae9cb41c603724f68462ef23a653190d65c08f/rulebooks/rb-ebwoid
+claims:
+  id: DETEST.00000471
+  name: Acme Logistics GmbH
+  attestation_legal_category: PUB-EAA
+  issuing_authority: Test Business Register Hamburg
+  issuing_country: DE
+  date_of_expiry: 2027-11-12
+always_disclosed: [attestation_legal_category, issuing_country]
+display:
+  name: Business wallet owner identification data
+  description: Acme Logistics GmbH
+  background_color: "#1f2f57"
+  text_color: "#ffffff"

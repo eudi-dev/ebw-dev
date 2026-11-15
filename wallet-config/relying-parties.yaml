@@ -1,0 +1,124 @@
+- identifier:
+    - identifier: DETEST.00000471
+  tradeName: Acme Logistics
+  legalPerson:
+    legalName: ["Acme Logistics GmbH"]
+  country: DE
+  services:
+    - serviceIdentifier: agent-service
+      serviceTradeName: Acme agent service
+      intendedUses:
+        - intendedUseIdentifier: supplier-mandate
+          purpose:
+            - lang: en
+              content: Give the procurement agent a delegation for orders at suppliers
+          credentials:
+            - format: dc+sd-jwt
+              meta:
+                vct_values: ["uri:eu.eudi.eu-poa.1"]
+              claims:
+                - path: [euid_reference]
+                - path: [company_statutory_full_name]
+                - path: [attorney_full_name]
+                - path: [scope_of_representation_powers]
+                - path: [validity_period_valid_until]
+        - intendedUseIdentifier: internal-mandate
+          purpose:
+            - lang: en
+              content: Give the procurement agent a delegation to approve invoices
+          credentials:
+            - format: dc+sd-jwt
+              meta:
+                vct_values: ["urn:eudi-test:business:employee-authorisation:1"]
+              claims:
+                - path: [represented_economic_operator]
+                - path: [proxy]
+                - path: [authority]
+    - serviceIdentifier: employee-authorisations
+      serviceTradeName: Acme employee authorisations
+      providesAttestations:
+        - format: dc+sd-jwt
+          type: urn:eudi-test:business:employee-authorisation:1
+- identifier:
+    - identifier: NLTEST.00000472
+  tradeName: Bolt Supplies
+  legalPerson:
+    legalName: ["Bolt Supplies B.V."]
+  country: NL
+  services:
+    - serviceIdentifier: supplier-portal
+      serviceTradeName: Bolt Supplies supplier portal
+      intendedUses:
+        - intendedUseIdentifier: order-authority
+          purpose:
+            - lang: en
+              content: Check the authority behind a purchase order
+          credentials:
+            - format: dc+sd-jwt
+              meta:
+                vct_values: ["uri:eu.eudi.eu-poa.1"]
+              claims:
+                - path: [euid_reference]
+                - path: [company_statutory_full_name]
+                - path: [attorney_full_name]
+                - path: [scope_of_representation_powers]
+                - path: [validity_period_valid_until]
+- identifier:
+    - identifier: NLTEST.00000473
+  tradeName: Delta Notaries
+  legalPerson:
+    legalName: ["Delta Notaries B.V."]
+  country: NL
+  services:
+    - serviceIdentifier: notary-desk
+      serviceTradeName: Delta notary desk
+      intendedUses:
+        - intendedUseIdentifier: branch-registration
+          purpose:
+            - lang: en
+              content: Check the power of attorney of the person who registers a branch
+          credentials:
+            - format: dc+sd-jwt
+              meta:
+                vct_values: ["uri:eu.eudi.eu-poa.1"]
+              claims:
+                - path: [euid_reference]
+                - path: [company_statutory_full_name]
+                - path: [attorney_full_name]
+                - path: [scope_of_representation_powers]
+                - path: [validity_period_valid_from]
+                - path: [validity_period_valid_until]
+- identifier:
+    - identifier: SETEST.00000474
+  tradeName: Example Bank
+  legalPerson:
+    legalName: ["Example Bank AB"]
+  country: SE
+  services:
+    - serviceIdentifier: business-onboarding
+      serviceTradeName: Example Bank business onboarding
+      intendedUses:
+        - intendedUseIdentifier: know-your-business
+          purpose:
+            - lang: en
+              content: Identify a company and its representative before opening a business account
+          credentials:
+            - format: dc+sd-jwt
+              meta:
+                vct_values: ["uri:eu.ebw.oid.1"]
+              claims:
+                - path: [id]
+                - path: [name]
+                - path: [issuing_authority]
+                - path: [issuing_country]
+                - path: [date_of_expiry]
+            - format: dc+sd-jwt
+              meta:
+                vct_values: ["uri:eu.eudi.eu-poa.1"]
+              claims:
+                - path: [euid_reference]
+                - path: [company_statutory_full_name]
+                - path: [attorney_full_name]
+                - path: [scope_of_representation_powers]
+                - path: [validity_period_valid_from]
+                - path: [validity_period_valid_until]

@@ -1,0 +1,38 @@
+name: eu-poa
+description: EU power of attorney for the managing director (EU PoA rulebook v0.2)
+format: sdjwt
+vct: uri:eu.eudi.eu-poa.1
+category: pub-eaa
+exp: 8760h
+rulebook: https://github.com/webuild-consortium/webuild-attestation-rulebooks-catalog/tree/adae9cb41c603724f68462ef23a653190d65c08f/rulebooks/rb-eu-poa
+claims:
+  attestation_legal_category: PUB-EAA
+  issuing_authority: Test Business Register Hamburg
+  issuing_country: DE
+  date_of_execution: 2026-10-01
+  euid_reference: DETEST.00000471
+  principal_full_name: Dave
+  principal_date_of_birth: 1961-11-23
+  company_statutory_full_name: Acme Logistics GmbH
+  company_business_register_name: Test Business Register Hamburg
+  company_business_register_location: Hamburg
+  company_jurisdiction: DE
+  company_kind_of_legal_entity: GmbH
+  company_registered_office: Example Street 1, 20457 Hamburg, DE
+  attorney_full_name: Alice
+  attorney_date_of_birth: 1974-03-09
+  scope_of_representation_powers:
+    - Registration and closure of branches of the Company
+    - Purchase orders for operating supplies up to EUR 5000 per order
+  scope_of_representation_power_of_substitution: limited
+  validity_period_valid_from: 2026-10-01
+  validity_period_valid_until: 2027-09-30
+  applicable_law_jurisdiction: DE
+  signing_place: Hamburg
+  signing_date: 2026-10-01
+always_disclosed: [attestation_legal_category, issuing_country]
+display:
+  name: EU power of attorney
+  description: Acme Logistics GmbH
+  background_color: "#3d59a1"
+  text_color: "#ffffff"

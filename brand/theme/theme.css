@@ -1,0 +1,63 @@
+:root,
+[data-theme="dark"] {
+  --band: #2a3550;
+  --band-line: 1px solid #2a3550;
+  --tag-bg: #ffffff;
+  --tag-fg: #1b2232;
+  --tag-border: #ffffff;
+  --tag-spacing: 0.08em;
+  --accent: #4fc1c6;
+  --on-accent: #10282b;
+  --link: #7fd3d6;
+}
+
+[data-theme="light"] {
+  --band: #1b2232;
+  --band-line: 1px solid #1b2232;
+  --accent: #1d5f68;
+  --on-accent: #ffffff;
+  --link: #1d5f68;
+}
+
+body > header {
+  background: var(--band);
+  border-bottom: var(--band-line);
+  color-scheme: dark;
+  --text: #eef1f6;
+  --text-dim: #b3bccc;
+  --bg-btn: #2f3a50;
+  --bg-btn-hover: #3b4862;
+  --bg-hover: #2f3a50;
+  --border: #3d4a63;
+  --border-subtle: var(--band);
+  /* The narrow menu drops down from the header with this background. */
+  --bg-header: var(--band);
+  --link: #c3cde0;
+  --accent: #4fc1c6;
+  --on-accent: #10282b;
+}
+
+/* The edition tag of theme.yaml, in white on the ink band. */
+body > header .edition-tag {
+  padding: 4px 7px;
+  border: 1.5px solid var(--tag-border);
+  border-radius: 5px;
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: var(--tag-spacing);
+}
+
+/* Parts for the personal test wallet: the browser extension and the PID
+   trusted list. theme.yaml hides the CLI entry of the menu. */
+#howto-tab-extension,
+#howto-trustlist-label,
+#howto-trustlist-endpoint,
+#howto-accept-label,
+#howto-accept-command,
+#howto-register-label,
+#howto-register-command,
+#howto-register-hint {
+  display: none;
+}

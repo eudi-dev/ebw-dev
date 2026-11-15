@@ -1,0 +1,35 @@
+- name: Business wallet owner identification data
+  category: pub-eaa
+  credentials:
+    - format: dc+sd-jwt
+      type: uri:eu.ebw.oid.1
+      claims: [[id], [name], [attestation_legal_category], [issuing_authority], [issuing_country], [date_of_expiry]]
+  schema:
+    version: 1.1.0
+    rulebookURI: https://github.com/webuild-consortium/webuild-attestation-rulebooks-catalog/tree/adae9cb41c603724f68462ef23a653190d65c08f/rulebooks/rb-ebwoid
+- name: EU power of attorney
+  category: pub-eaa
+  credentials:
+    - format: dc+sd-jwt
+      type: uri:eu.eudi.eu-poa.1
+      claims:
+        - [euid_reference]
+        - [company_statutory_full_name]
+        - [principal_full_name]
+        - [attorney_full_name]
+        - [scope_of_representation_powers]
+        - [scope_of_representation_power_of_substitution]
+        - [validity_period_valid_from]
+        - [validity_period_valid_until]
+  schema:
+    version: "0.2"
+    rulebookURI: https://github.com/webuild-consortium/webuild-attestation-rulebooks-catalog/tree/adae9cb41c603724f68462ef23a653190d65c08f/rulebooks/rb-eu-poa
+- name: Employee authorisation
+  category: eaa
+  credentials:
+    - format: dc+sd-jwt
+      type: urn:eudi-test:business:employee-authorisation:1
+      claims: [[credential], [represented_economic_operator], [proxy], [authority], [credential_metadata]]
+  schema:
+    version: "1.2"
+    rulebookURI: https://github.com/webuild-consortium/webuild-attestation-rulebooks-catalog/tree/adae9cb41c603724f68462ef23a653190d65c08f/rulebooks/rb-poa-pox

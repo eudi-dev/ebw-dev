@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+<title>Case {{.Case.Number}}: {{.Case.Heading}}</title>
+</head>
+<body data-page="case" data-case="{{.Case.ID}}">
+{{template "header" .}}
+<main>
+  <section class="hero">
+    {{template "crumbs" (printf "Case %d of %d" .Case.Number (len .Cases))}}
+    <h1>{{.Case.Heading}}</h1>
+    <p class="lead">{{.Case.Intro}}</p>
+    <dl class="case-facts">
+      <div><dt>Task</dt><dd>{{.Case.Task.Description}} for {{.Case.Task.Amount}} {{.Case.Task.Currency}}</dd></div>
+      <div><dt>Credential</dt><dd>{{.Case.CredentialName}}</dd></div>
+      <div><dt>Delegation</dt><dd><code>{{.Case.Action}}</code> up to {{.Case.Limit.Amount}} {{.Case.Limit.Currency}}</dd></div>
+    </dl>
+  </section>
+
+  <div class="case-layout">
+  <aside class="rail rail-4" aria-label="Progress">
+    <p class="rail-title">Case {{.Case.Number}}</p>
+    <ol>
+      <li data-node="request"><a href="#step-request"><span class="dot"><span>1</span></span><b>Agent asks</b><span class="who">Business wallet</span></a></li>
+      <li data-node="approval"><a href="#step-approval"><span class="dot"><span>2</span></span><b>You approve</b><span class="who">In the wallet</span></a></li>
+      <li data-node="action"><a href="#step-action"><span class="dot"><span>3</span></span><b>Agent acts</b><span class="who">{{.Case.Service}}</span></a></li>
+      <li data-node="refusals"><a href="#refusals-title"><span class="dot"><span>4</span></span><b>Refusals</b><span class="who"></span></a></li>
+    </ol>
+  </aside>
+  <div class="case-main">
+  <section aria-labelledby="flow-title">
+    <div class="section-head">
+      <h2 id="flow-title">Steps</h2>
+      <a class="button secondary small" id="restart" href="cases/{{.Case.ID}}" hidden>Start again</a>
+    </div>
+    <ol class="steps">
+      <li class="step" data-step="request" id="step-request" data-state="now">
+        <h3>Ask the wallet for a delegation</h3>
+        <p>The agent asks the business wallet for a delegation. It allows <code>{{.Case.Action}}</code> up to {{.Case.Limit.Amount}} {{.Case.Limit.Currency}}.</p>
+        <div class="actions"><button type="button" id="request">Ask the wallet for a delegation</button></div>
+        <p class="where" id="request-hint">The wallet opens in this tab. After your answer it brings you back here.</p>
+        <p class="result" id="request-result" role="status"></p>
+      </li>
+      <li class="step" data-step="approval" id="step-approval" data-state="todo">
+        <h3>Approve in the wallet</h3>
+        <p class="next-hint">You do this in the wallet after step 1.</p>
+        <div class="when-active"><div id="approval-result" role="status" hidden></div></div>
+      </li>
+      <li class="step" data-step="action" id="step-action" data-state="todo">
+        <h3>{{.Case.Do}}</h3>
+        <p class="next-hint">Opens after your approval.</p>
+        <div class="when-active">
+          <p>{{.Case.Acting}}</p>
+          <div class="actions"><button type="button" id="act">{{.Case.Do}}</button></div>
+          <div id="act-result" role="status" data-accepted="{{.Case.Accepted}}" hidden></div>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="refusals-title">
+    <h2 id="refusals-title">Refusals</h2>
+    <p class="muted">Each refusal changes one thing in the presentation. The verifier must refuse each one.</p>
+    <p class="lock" id="refusals-lock"><span>The refusals need the delegation from step 2. <a href="#step-request">Start with step 1</a>.</span></p>
+    <ul class="refusals">
+      <li class="refusal" id="refusal-over_limit" data-variant="over_limit"><h3>Amount over the limit</h3><p>The agent asks for {{.Case.Task.OverLimitAmount}} {{.Case.Task.Currency}}. The limit is {{.Case.Limit.Amount}} {{.Case.Limit.Currency}}.</p><div class="outcome" role="status" hidden></div><button type="button" class="secondary small" disabled>Run</button></li>
+      <li class="refusal" id="refusal-expired" data-variant="expired"><h3>Expired delegation</h3><p>The agent uses the delegation after its end time.</p><div class="outcome" role="status" hidden></div><button type="button" class="secondary small" disabled>Run</button></li>
+      <li class="refusal" id="refusal-wrong_verifier" data-variant="wrong_verifier"><h3>Wrong verifier</h3><p>The agent shows the delegation to {{.Stranger.Organisation}}.</p><div class="outcome" role="status" hidden></div><button type="button" class="secondary small" disabled>Run</button></li>
+      <li class="refusal" id="refusal-tampered" data-variant="tampered"><h3>Tampered token</h3><p>The agent raises the limit after the wallet signed.</p><div class="outcome" role="status" hidden></div><button type="button" class="secondary small" disabled>Run</button></li>
+      <li class="refusal" id="refusal-revoked" data-variant="revoked"><h3>Revoked credential</h3><p>The issuer revokes {{.Case.Authority}} behind the delegation.</p><div class="outcome" role="status" hidden></div><button type="button" class="secondary small" disabled>Run</button></li>
+    </ul>
+  </section>
+  </div>
+  </div>
+
+  {{template "after" .}}
+</main>
+{{template "footer" .}}
+<script src="static/app.js" defer></script>
+</body>
+</html>

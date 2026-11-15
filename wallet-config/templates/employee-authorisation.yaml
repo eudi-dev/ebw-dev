@@ -1,0 +1,45 @@
+name: employee-authorisation
+description: Employee authorisation of Acme Logistics GmbH for internal use (Power of X rulebook v1.2)
+format: sdjwt
+vct: urn:eudi-test:business:employee-authorisation:1
+category: eaa
+exp: 2160h
+rulebook: https://github.com/webuild-consortium/webuild-attestation-rulebooks-catalog/tree/adae9cb41c603724f68462ef23a653190d65c08f/rulebooks/rb-poa-pox
+claims:
+  credential:
+    type: power_of_employee
+    legal_category: non-qualified-EAA
+  represented_economic_operator:
+    identifier:
+      scheme: EBWOID
+      value: DETEST.00000471
+    legal_name: Acme Logistics GmbH
+  proxy:
+    entity_type: natural_entity
+    natural_entity_proxy:
+      family_name: Example
+      given_name: Bob
+      birth_date: 1988-04-17
+  authority:
+    authority_source: proxy_employee_authorisation
+    proxy_employee_authorisation:
+      employee_role: Head of Procurement
+      authorisation_scope: [invoice.approve]
+      constraints:
+        limit:
+          amount: "2500.00"
+          currency: EUR
+      service_access: [Acme internal procurement API]
+  credential_metadata:
+    issuer:
+      name: Acme Logistics GmbH
+      identifier: DETEST.00000471
+    schema:
+      name: WE BUILD Power of X Credential
+      version: "1.2"
+always_disclosed: [credential]
+display:
+  name: Employee authorisation
+  description: Acme Logistics GmbH
+  background_color: "#5a4a2a"
+  text_color: "#ffffff"

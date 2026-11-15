@@ -1,0 +1,41 @@
+# Transaction data entries (OpenID4VP 1.0 §5.1) for requests to the business
+# wallet. The names and accounts are made up.
+name: agent-delegation
+description: Delegate the EU power of attorney to the procurement agent of Acme Logistics GmbH (draft-ietf-oauth-delegate-sd-jwt-00 §7.1)
+transaction_data:
+  type: delegate
+  format: dSD-JWT+KB
+  # The delegate payload is the one the agent service sends (docs/chain-format.md).
+  # The agent key in its cnf has no private key outside this template.
+  delegate_payload_disclosure: WyJVUGQ4cEM5VFVlVVdpYm1tcXV6TkNBIix7ImFnZW50Ijp7ImlkIjoidXJuOmV1ZGktdGVzdDphZ2VudDpwcm9jdXJlbWVudC0xIiwibmFtZSI6IlByb2N1cmVtZW50IGFnZW50Iiwib3BlcmF0b3IiOiJBY21lIExvZ2lzdGljcyBHbWJIIn0sImNuZiI6eyJqd2siOnsia3R5IjoiRUMiLCJjcnYiOiJQLTI1NiIsIngiOiJ4YW1NREZPNzNZWXN2ZzJ2cFpXbTlaMlpJUmFJY2tOeG9NblJ3T2NsTkpFIiwieSI6ImdCTDhkaGZ2RExSd2ZOT2c3eEpCUGRhS19ubU9nY2VCODB1WkRKaFpjY1EifX0sImV4cCI6MTgzMDI5NDAwMCwiaWF0IjoxNzk0NzMzMjAwLCJtYW5kYXRlIjp7ImFjdGlvbnMiOlsib3JkZXIuY3JlYXRlIl0sImF1ZGllbmNlcyI6W3siLi4uIjoiX1o3NUQzX3JlUWVadHZYd2RSR0Z1dXZGTi1kWXFyaS03MndWeXVuNnFKcyJ9LHsiLi4uIjoiZkFINHBJYjNweVh6X3lHQmxDdzBURVhObkRzdm56MVVHaEpRWG8talBsUSJ9XSwibGltaXQiOnsiYW1vdW50IjoiNTAwMC4wMCIsImN1cnJlbmN5IjoiRVVSIn0sInB1cnBvc2UiOiJPcmRlciBwYWNrYWdpbmcgbWF0ZXJpYWwifSwidmN0IjoidXJuOmV1ZGktdGVzdDpidXNpbmVzczphZ2VudC1tYW5kYXRlOjEifV0
+  delegate_disclosures:
+    - WyIycFBXV095MmZaR3pVdHVLb1B6UGNnIiwicmVkaXJlY3RfdXJpOmh0dHBzOi8vcG9ydGFsLmJvbHQuZXhhbXBsZS9vcGVuaWQ0dnAvcmVzcG9uc2UiXQ
+    - WyJINGJ2dU9mMkg4U2FXcHhZRG5kYlpBIiwicmVkaXJlY3RfdXJpOmh0dHBzOi8vZXJwLmFjbWUuZXhhbXBsZS9vcGVuaWQ0dnAvcmVzcG9uc2UiXQ
+---
+name: supplier-payment
+description: Payment of 4180.00 EUR from Acme Logistics GmbH to Bolt Supplies B.V. for a purchase order (TS12)
+transaction_data:
+  type: urn:eudi:sca:payment:1
+  transaction_data_hashes_alg: [sha-256]
+  payload:
+    transaction_id: 5C1F7A3E-2B9D-4E60-8F14-A7D2C6B90E31
+    payee:
+      name: Bolt Supplies B.V.
+      id: NL37ZQVX4827193650
+      website: https://portal.bolt.example
+    currency: EUR
+    amount: 4180.0
+    execution_date: "2026-12-01T09:00:00+01:00"
+---
+name: supplier-emandate
+description: E-mandate of Acme Logistics GmbH for the monthly direct debit of Bolt Supplies B.V. (TS12)
+transaction_data:
+  type: urn:eudi:sca:emandate:1
+  transaction_data_hashes_alg: [sha-256]
+  payload:
+    transaction_id: 0B6E9D24-7C31-4F8A-9E52-3D1A8C7F6B40
+    start_date: "2027-01-01T00:00:00+01:00"
+    end_date: "2027-12-31T23:59:59+01:00"
+    reference_number: ACME-BOLT-2027-01
+    creditor_id: NL98ZZZ999999999999
+    purpose: Monthly invoices of Bolt Supplies B.V. for operating supplies

@@ -1,0 +1,9 @@
+name: EUDI Dev Wallet
+description: Test wallet for companies and other legal persons. It holds the credentials of an organisation and can delegate them to an AI agent.
+edition: Business
+nav:
+  hide:
+    - get-cli
+product:
+  name: ebw-dev
+  url: https://github.com/eudi-dev/ebw-dev

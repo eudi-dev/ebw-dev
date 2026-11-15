@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+<title>Business wallet demo</title>
+</head>
+<body data-page="map">
+{{template "header" .}}
+<main>
+  <section class="hero">
+    <h1>An AI agent with a delegation from a business wallet</h1>
+    <p class="lead">Acme Logistics GmbH keeps its credentials in a business wallet. Every box on the map opens a part of the demo. Start with case 1.</p>
+  </section>
+
+  <section aria-label="Map of the demo">
+    <div class="map">
+      <div class="map-col">
+        <a class="node issuer" href="issuer" id="issuer-node">
+          <span class="tag">Optional</span>
+          <h3>Business issuer</h3>
+          <p>Issues the 3 credentials of Acme again. You need it only after you delete one.</p>
+          <span class="cta">Open the issuer</span>
+        </a>
+        <p class="link-down">issues credentials to</p>
+        <div class="org">
+          <p class="org-name">Acme Logistics GmbH</p>
+          <a class="node wallet" href="{{.WalletPublicURL}}">
+            <h3>{{template "wallet-mark" .}}Business wallet</h3>
+            <p>You approve each request here.</p>
+            <p class="holdings" id="holdings" role="status"></p>
+            <span class="cta out">Open the wallet</span>
+          </a>
+          <p class="link-down">gives a delegation to</p>
+          <a class="node agent" href="#how">
+            <h3>{{template "agent-icon"}}AI agent</h3>
+            <p>Places orders and approves invoices with the delegation.</p>
+            <span class="cta down">How the agent works</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="map-hop">{{template "arrow"}}<span>shows credentials to</span></div>
+
+      <div class="map-col verifiers" id="scenarios">
+        <div class="group">
+          <h2 class="group-title">With the AI agent</h2>
+          <div class="group-list">
+            {{range .Cases}}<a class="node{{if eq .Number 1}} first{{end}}" href="cases/{{.ID}}">
+              <div class="node-head"><h3>{{.Place}}</h3><span class="tag case-tag">Case {{.Number}}</span></div>
+              <p>{{.Summary}}</p>
+              <span class="cta">Start case {{.Number}}</span>
+            </a>
+            {{end}}<a class="node stranger" href="cases/{{(index .Cases 0).ID}}#refusal-wrong_verifier">
+              <div class="node-head"><h3>{{.Stranger.Organisation}}</h3><span class="tag bad">Wrong verifier</span></div>
+              <p>No delegation names this verifier, so it refuses the agent in both cases.</p>
+              <span class="cta">See the refusal in case 1</span>
+            </a>
+          </div>
+        </div>
+        <div class="group">
+          <h2 class="group-title">Without an agent</h2>
+          <div class="group-list">
+            {{range .Scenarios}}<a class="node" href="scenarios/{{.ID}}">
+              <div class="node-head"><h3>{{.Verifier.Organisation}}</h3><span class="tag">{{.Kind}}</span></div>
+              <p>{{.Summary}}</p>
+              <span class="cta">Open the {{lower .Kind}}</span>
+            </a>
+            {{end}}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="how-title" id="how">
+    <h2 id="how-title">How the agent works</h2>
+    <ol class="how">
+      <li><strong>The wallet signs a delegation</strong>It holds the action, the limit, the allowed verifiers and an end time. You approve it in the wallet.</li>
+      <li><strong>The agent shows it to a verifier</strong>The agent signs each presentation with its own key. It works without you.</li>
+      <li><strong>The verifier checks 3 signatures</strong>The issuer signed the credential. The wallet signed the delegation. The agent signed the presentation.</li>
+    </ol>
+    <details>
+      <summary>Format of the delegation</summary>
+      <p>The delegation is a Delegate SD-JWT (draft-ietf-oauth-delegate-sd-jwt-00). It lists the agent key, the allowed action, a limit, an end time and the verifiers.</p>
+    </details>
+    <details>
+      <summary>Trusted lists of the verifiers</summary>
+      <p>The verifiers load the trusted lists of the business wallet over HTTP.</p>
+      <div id="trust" aria-live="polite">Loading the trusted lists.</div>
+      <button type="button" id="trust-reload" class="secondary small">Reload the trusted lists</button>
+    </details>
+  </section>
+</main>
+{{template "footer" .}}
+<script src="static/app.js" defer></script>
+</body>
+</html>

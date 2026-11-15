@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+{{template "head" .}}
+<title>{{.Scenario.Title}}</title>
+</head>
+<body data-page="scenario" data-scenario="{{.Scenario.ID}}" data-asker="{{.Scenario.Asker}}">
+{{template "header" .}}
+<main>
+  <section class="hero">
+    {{template "crumbs" .Scenario.Kind}}
+    <h1>{{.Scenario.Title}}</h1>
+    <p class="lead">{{.Scenario.Intro}}</p>
+    <dl class="case-facts">
+      <div><dt>Task</dt><dd>{{.Scenario.Task}}</dd></div>
+      <div><dt>Verifier</dt><dd>{{.Scenario.Verifier.Name}}, {{.Scenario.Verifier.Country}}</dd></div>
+      <div><dt>{{if eq (len .Scenario.Queries) 1}}Credential{{else}}Credentials{{end}}</dt><dd>{{range $i, $q := .Scenario.Queries}}{{if $i}} and {{end}}{{$q.Name}}{{end}}</dd></div>
+    </dl>
+  </section>
+
+  {{$refusals := .Scenario.Refusals}}
+  <div class="case-layout">
+  <aside class="rail {{if $refusals}}rail-4{{else}}rail-3{{end}}" aria-label="Progress">
+    <p class="rail-title">{{.Scenario.Kind}}</p>
+    <ol>
+      <li data-node="request"><a href="#step-request"><span class="dot"><span>1</span></span><b>{{.Scenario.Kind}} asks</b><span class="who">Business wallet</span></a></li>
+      <li data-node="approval"><a href="#step-approval"><span class="dot"><span>2</span></span><b>You approve</b><span class="who">In the wallet</span></a></li>
+      <li data-node="action"><a href="#step-action"><span class="dot"><span>3</span></span><b>{{.Scenario.Kind}} checks</b><span class="who">{{.Scenario.Short}}</span></a></li>
+      {{if $refusals}}<li data-node="refusals"><a href="#refusals-title"><span class="dot"><span>4</span></span><b>Refusals</b><span class="who"></span></a></li>{{end}}
+    </ol>
+  </aside>
+  <div class="case-main">
+  <section aria-labelledby="flow-title">
+    <div class="section-head">
+      <h2 id="flow-title">Steps</h2>
+      <a class="button secondary small" id="restart" href="scenarios/{{.Scenario.ID}}" hidden>Start again</a>
+    </div>
+    <ol class="steps">
+      <li class="step" data-step="request" id="step-request" data-state="now">
+        <h3>{{.Scenario.Ask}}</h3>
+        <p>{{.Scenario.AskText}}</p>
+        <div class="actions"><button type="button" id="request">Ask the wallet</button></div>
+        <p class="where" id="request-hint">The wallet opens in this tab. After your answer it brings you back here.</p>
+        <p class="result" id="request-result" role="status"></p>
+      </li>
+      <li class="step" data-step="approval" id="step-approval" data-state="todo">
+        <h3>Approve in the wallet</h3>
+        <p class="next-hint">You do this in the wallet after step 1.</p>
+        <div class="when-active"><div id="approval-result" role="status" hidden></div></div>
+      </li>
+      <li class="step" data-step="action" id="step-action" data-state="todo">
+        <h3>{{.Scenario.Check}}</h3>
+        <p class="next-hint">The result shows here after your approval.</p>
+        <div class="when-active"><div id="act-result" role="status" data-accepted="{{.Scenario.Accepted}}" data-done="{{.Scenario.Done}}" hidden></div></div>
+      </li>
+    </ol>
+  </section>
+
+  {{if $refusals}}<section aria-labelledby="refusals-title">
+    <h2 id="refusals-title">Refusals</h2>
+    <p class="muted">Each refusal is a new request. You approve it in the wallet. Then {{lower .Scenario.Asker}} has to refuse it.</p>
+    <ul class="refusals">
+      {{range $refusals}}<li class="refusal" id="refusal-{{.ID}}" data-variant="{{.ID}}"><h3>{{.Title}}</h3><p>{{.Expectation}}</p><div class="outcome" role="status" hidden></div><button type="button" class="secondary small">Ask the wallet</button></li>
+      {{end}}
+    </ul>
+  </section>{{end}}
+  </div>
+  </div>
+
+  {{template "after" .}}
+</main>
+{{template "footer" .}}
+<script src="static/app.js" defer></script>
+</body>
+</html>
