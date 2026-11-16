@@ -528,6 +528,7 @@ function casePage(caseID) {
   }
 
   requestButton.addEventListener("click", () => goToWallet(requestButton));
+  requestButton.disabled = false;
 
   actButton.dataset.label = actButton.textContent;
   actButton.addEventListener("click", async () => {
@@ -749,6 +750,7 @@ function scenarioPage(scenarioID) {
   }
 
   byId("request").addEventListener("click", (event) => goToWallet(event.currentTarget, "ok"));
+  byId("request").disabled = false;
   for (const card of cards) {
     const button = card.querySelector("button");
     button.addEventListener("click", () => goToWallet(button, card.dataset.variant));

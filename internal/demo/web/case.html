@@ -38,7 +38,7 @@
       <li class="step" data-step="request" id="step-request" data-state="now">
         <h3>Ask the wallet for a delegation</h3>
         <p>The agent asks the business wallet for a delegation. It allows <code>{{.Case.Action}}</code> up to {{.Case.Limit.Amount}} {{.Case.Limit.Currency}}.</p>
-        <div class="actions"><button type="button" id="request">Ask the wallet for a delegation</button></div>
+        <div class="actions"><button type="button" id="request" disabled>Ask the wallet for a delegation</button></div>
         <p class="where" id="request-hint">The wallet opens in this tab. After your answer it brings you back here.</p>
         <p class="result" id="request-result" role="status"></p>
       </li>
