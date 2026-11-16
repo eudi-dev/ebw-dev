@@ -40,6 +40,8 @@ Alice registers a Rotterdam branch of Acme Logistics GmbH. The notary office Del
 | `expired` | Registration of a branch on the day after the end date | Refused | `policy_poa_validity` |
 | `revoked` | Registration of a branch | Refused | `status` |
 
+The `revoked` variant revokes the presented EU power of attorney. The public demo protects its Acme credentials. When the wallet would present a protected one, the demo first issues a new EU power of attorney and revokes that one. If the wallet still presents a protected one, the request stops with the status `stopped` and asks for a new request.
+
 The policy has 2 checks:
 
 - **Scope.** Each task needs a power from the list of the EU PoA rulebook. `scope_of_representation_powers` must contain this power word for word.
@@ -73,7 +75,7 @@ A request is valid for one answer. The server keeps it for one hour and holds up
 | `GET` | `/api/wallet/credentials` | The credentials in the wallet for each configuration of the issuer. Each credential has `valid`, `issued_at` and `expires_at` |
 | `POST` | `/api/offers` | Creates an offer. Body: `{"configuration": "eu-poa"}` |
 | `POST` | `/api/scenarios/{scenario}/requests` | Creates a request. Body: `{"variant": "expired"}`. Without a variant the server uses `ok` |
-| `GET` | `/api/scenarios/{scenario}/requests/{id}` | Status, presentations, checks and reasons of a request |
+| `GET` | `/api/scenarios/{scenario}/requests/{id}` | Status, presentations, checks and reasons of a request. The status is `pending`, `accepted`, `refused` or `stopped` |
 | `POST` | `/scenarios/{scenario}/response` | Response endpoint for the wallet (`direct_post`) |
 
 ## Differences from real verifiers

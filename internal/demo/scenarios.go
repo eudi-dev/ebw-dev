@@ -20,6 +20,9 @@ const (
 	ScenarioPending  = "pending"
 	ScenarioAccepted = "accepted"
 	ScenarioRefused  = "refused"
+	// ScenarioStopped means the demo could not set up the variant. Reasons
+	// explain why.
+	ScenarioStopped = "stopped"
 )
 
 const (
@@ -200,6 +203,9 @@ type ScenarioRequest struct {
 	answerState
 	nonce    string
 	clientID string
+	// presentedProtected is set when the wallet presented a protected
+	// credential in the revoked variant.
+	presentedProtected bool
 }
 
 type ScenarioPresentation struct {
@@ -300,11 +306,14 @@ func (s *Server) createScenarioRequest(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) prepareWallet(ctx context.Context, scenario Scenario, request *ScenarioRequest) error {
 	for _, query := range scenario.Queries {
-		issued, err := s.ensureValid(ctx, query.Type, query.Template)
-		if err != nil {
+		revocable := request.Variant == VariantRevoked && query.Type == TypePowerOfAttorney
+		issued, err := s.ensureValid(ctx, query.Type, query.Template, revocable)
+		switch {
+		case err != nil:
 			return err
-		}
-		if issued {
+		case issued && revocable:
+			request.Notes = append(request.Notes, "The demo issued a new "+query.Name+" for the issuer to revoke. The Acme credentials of the demo are protected.")
+		case issued:
 			request.Notes = append(request.Notes, "The wallet had no valid "+query.Name+". The demo issued a new one.")
 		}
 	}
@@ -320,11 +329,16 @@ func (s *Server) revokeBeforeStatus(ctx context.Context, request *ScenarioReques
 		if err != nil {
 			return check(claims)
 		}
-		_, revoked, err := s.revokeInWallet(ctx, uri, index)
-		if err != nil {
+		held, err := s.heldCredential(ctx, uri, index)
+		switch {
+		case err != nil:
 			return fmt.Errorf("revoking the presented credential failed: %w", err)
-		}
-		if revoked {
+		case held.Protected:
+			request.presentedProtected = true
+		case held.Status.Status == 0:
+			if err := s.wallet.setStatus(ctx, held.ID, 1); err != nil {
+				return fmt.Errorf("revoking the presented credential failed: %w", err)
+			}
 			request.Notes = append(request.Notes, "The issuer revoked the EU power of attorney before the notary checked it.")
 		}
 		return check(claims)
@@ -374,8 +388,12 @@ func (s *Server) scenarioResponse(w http.ResponseWriter, r *http.Request) {
 
 	scenario, _ := scenarioByID(answer.Scenario)
 	s.checkScenarioAnswer(r, scenario, &answer)
+	if answer.presentedProtected {
+		answer.Status = ScenarioStopped
+		answer.Reasons = []string{"The wallet presented a protected Acme credential, so the issuer did not revoke it. Ask the wallet again."}
+	}
 	if answer.Variant == VariantRevoked {
-		if issued, err := s.ensureValid(r.Context(), TypePowerOfAttorney, poaQuery.Template); err != nil {
+		if issued, err := s.ensureValid(r.Context(), TypePowerOfAttorney, poaQuery.Template, false); err != nil {
 			answer.Notes = append(answer.Notes, "The demo could not issue a new EU power of attorney: "+err.Error()+".")
 		} else if issued {
 			answer.Notes = append(answer.Notes, "The demo issued a new EU power of attorney for the next request.")
@@ -403,7 +421,7 @@ func (s *Server) checkScenarioAnswer(r *http.Request, scenario Scenario, request
 		return
 	}
 	if err := s.ensureTrust(r.Context()); err != nil {
-		request.Reasons = append(request.Reasons, "The trusted lists of the wallet did not load: "+err.Error()+".")
+		request.Reasons = append(request.Reasons, sentence(err.Error()))
 		return
 	}
 	now := s.now()

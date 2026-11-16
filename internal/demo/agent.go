@@ -133,6 +133,10 @@ func claimAnswer[T interface{ answer() *answerState }](s *Server, requests map[s
 
 const mandateLifetime = time.Hour
 
+// expiredShift is the clock shift of the expired mandate run. It lies past
+// the end of every mandate.
+const expiredShift = mandateLifetime + 5*time.Minute
+
 var clientMetadata = map[string]any{
 	"vp_formats_supported": map[string]any{
 		"dc+sd-jwt": map[string]any{
@@ -348,7 +352,7 @@ func (s *Server) receiveMandate(r *http.Request, mandate *Mandate) mandateAnswer
 		return refusal("invalid_response", "The answer of the wallet is not usable: "+err.Error()+".", "", nil)
 	}
 	if err := s.ensureTrust(r.Context()); err != nil {
-		return refusal("trust_unavailable", "The trusted lists of the wallet did not load: "+err.Error()+".", token, nil)
+		return refusal("trust_unavailable", sentence(err.Error()), token, nil)
 	}
 	now := s.now()
 	selected, _ := caseByID(mandate.Case)
@@ -398,8 +402,9 @@ type Run struct {
 	Verifier Verifier  `json:"verifier"`
 	Created  time.Time `json:"created"`
 	Steps    []Step    `json:"steps"`
-	// Outcome is accepted, refused or failed. Failed means the run broke
-	// before the verifier decided.
+	// Outcome is accepted, refused, failed or stopped. Failed means the run
+	// broke before the verifier decided. Stopped means the demo ended the run
+	// before the agent acted. Reasons explain why.
 	Outcome string         `json:"outcome"`
 	Reasons []string       `json:"reasons"`
 	Token   string         `json:"token,omitempty"`
@@ -481,7 +486,10 @@ func (s *Server) runAgent(ctx context.Context, mandate *Mandate, variant string)
 	}
 	var err error
 	if variant == VariantRevoked {
-		err = s.revoke(ctx, run, mandate)
+		var stopped bool
+		if stopped, err = s.revoke(ctx, run, mandate, selected); stopped {
+			return run
+		}
 	}
 	if err == nil {
 		err = s.act(ctx, run, mandate, selected, verifier)
@@ -492,7 +500,7 @@ func (s *Server) runAgent(ctx context.Context, mandate *Mandate, variant string)
 		run.log("agent", "The agent stopped: "+err.Error()+".", nil)
 	}
 	if variant == VariantRevoked {
-		issued, err := s.ensureValid(ctx, selected.CredentialType, selected.Template)
+		issued, err := s.ensureValid(ctx, selected.CredentialType, selected.Template, false)
 		switch {
 		case err != nil:
 			run.log("wallet", "The wallet issued no new credential: "+err.Error()+".", nil)
@@ -504,18 +512,31 @@ func (s *Server) runAgent(ctx context.Context, mandate *Mandate, variant string)
 }
 
 // revoke sets the Token Status List entry of the credential under the delegation
-// to 1 (draft-ietf-oauth-status-list-21 §7.1).
-func (s *Server) revoke(ctx context.Context, run *Run, mandate *Mandate) error {
+// to 1 (draft-ietf-oauth-status-list-21 §7.1). When the credential is
+// protected, it stops the run. The next delegation rests on a new credential.
+func (s *Server) revoke(ctx context.Context, run *Run, mandate *Mandate, selected Case) (bool, error) {
 	uri, index, err := trust.StatusReference(mandate.Report.Credential)
 	if err != nil {
-		return fmt.Errorf("the credential under the delegation: %w", err)
+		return false, fmt.Errorf("the credential under the delegation: %w", err)
 	}
-	held, revoked, err := s.revokeInWallet(ctx, uri, index)
+	held, err := s.heldCredential(ctx, uri, index)
 	if err != nil {
-		return err
+		return false, err
 	}
 	detail := map[string]any{"uri": uri, "idx": index}
-	if revoked {
+	if held.Protected {
+		if _, err := s.ensureValid(ctx, selected.CredentialType, selected.Template, true); err != nil {
+			return false, err
+		}
+		run.Outcome = "stopped"
+		run.Reasons = []string{"The credential behind this delegation is a protected Acme credential of the demo. The demo cannot revoke it. The wallet holds a new " + selected.CredentialName + " for the next delegation. Start again for a new delegation."}
+		run.log("wallet", run.Reasons[0], detail)
+		return true, nil
+	}
+	if held.Status.Status == 0 {
+		if err := s.wallet.setStatus(ctx, held.ID, 1); err != nil {
+			return false, err
+		}
 		run.log("wallet", "Revokes the credential behind the delegation.", detail)
 	} else {
 		run.log("wallet", "The credential behind the delegation is already revoked.", detail)
@@ -523,38 +544,39 @@ func (s *Server) revoke(ctx context.Context, run *Run, mandate *Mandate) error {
 	if !held.ExpiresAt.IsZero() && !s.now().Before(held.ExpiresAt) {
 		run.log("wallet", "The credential behind the delegation also expired at "+held.ExpiresAt.UTC().Format(time.RFC3339)+".", nil)
 	}
-	return nil
+	return false, nil
 }
 
-// revokeInWallet revokes the wallet credential with this status list entry. It
-// reports false when the status list already marks the credential.
-func (s *Server) revokeInWallet(ctx context.Context, uri string, index int) (walletCredential, bool, error) {
+func (s *Server) heldCredential(ctx context.Context, uri string, index int) (walletCredential, error) {
 	credentials, err := s.wallet.credentials(ctx)
 	if err != nil {
-		return walletCredential{}, false, err
+		return walletCredential{}, err
 	}
 	for _, credential := range credentials {
-		if credential.Status == nil || credential.Status.URI != uri || credential.Status.Index != index {
-			continue
+		if credential.Status != nil && credential.Status.URI == uri && credential.Status.Index == index {
+			return credential, nil
 		}
-		if credential.Status.Status != 0 {
-			return credential, false, nil
-		}
-		return credential, true, s.wallet.setStatus(ctx, credential.ID, 1)
 	}
-	return walletCredential{}, false, errors.New("the wallet does not hold the credential")
+	return walletCredential{}, errors.New("the wallet does not hold the credential")
 }
 
 // ensureValid leaves the wallet with a valid credential of the type. It issues
 // one from the template when every credential of the type is revoked. The
-// wallet presents a valid credential before a revoked one.
-func (s *Server) ensureValid(ctx context.Context, credentialType, template string) (bool, error) {
+// wallet presents its newest valid credential. With revocable set, it also
+// issues when that one is protected, because the demo cannot revoke it.
+func (s *Server) ensureValid(ctx context.Context, credentialType, template string, revocable bool) (bool, error) {
 	credentials, err := s.wallet.credentials(ctx)
 	if err != nil {
 		return false, err
 	}
 	now := s.now()
-	if slices.ContainsFunc(credentials, func(c walletCredential) bool { return c.Type == credentialType && c.valid(now) }) {
+	var newest *walletCredential
+	for i, credential := range credentials {
+		if credential.Type == credentialType && credential.valid(now) && (newest == nil || credential.IssuedAt.After(newest.IssuedAt)) {
+			newest = &credentials[i]
+		}
+	}
+	if newest != nil && !(revocable && newest.Protected) {
 		return false, nil
 	}
 	return true, s.wallet.issue(ctx, template)
@@ -567,7 +589,7 @@ func (s *Server) act(ctx context.Context, run *Run, mandate *Mandate, selected C
 	}
 	var shift time.Duration
 	if run.Variant == VariantExpired {
-		shift = mandateLifetime + 5*time.Minute
+		shift = expiredShift
 	}
 	run.log("agent", fmt.Sprintf("Task: %s Amount: %s %s.", selected.Task.Description, amount, selected.Task.Currency), nil)
 	if shift > 0 {
@@ -582,7 +604,7 @@ func (s *Server) act(ctx context.Context, run *Run, mandate *Mandate, selected C
 		"description": selected.Task.Description,
 	}
 	if shift > 0 {
-		business["simulate_clock_shift_seconds"] = int(shift.Seconds())
+		business["simulate_expired_mandate"] = true
 	}
 	run.log("agent", fmt.Sprintf("Sends the request %s to %s.", selected.Action, verifier.Name), business)
 	var created struct {

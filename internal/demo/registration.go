@@ -31,43 +31,41 @@ type relyingParty struct {
 var agentService = relyingParty{ID: "DETEST.00000471", Service: "agent-service", Name: "Acme agent service"}
 
 // registration is the identity of a relying party service: the key and the
-// access certificate for its requests, and the registration certificate of
-// each intended use.
+// access certificate for its requests.
 type registration struct {
-	key          *ecdsa.PrivateKey
-	certificate  []byte
-	clientID     string
-	verifierInfo map[string]json.RawMessage
+	key         *ecdsa.PrivateKey
+	certificate []byte
+	clientID    string
 }
 
 // registered returns the registration of the service with the verifier_info
-// of the intended use. The first call asks the registrar for the certificates.
+// of the intended use. The first call asks the registrar for the access
+// certificate.
 func (s *Server) registered(ctx context.Context, party relyingParty, intendedUse string) (*registration, json.RawMessage, error) {
+	current, err := s.accessRegistration(ctx, party)
+	if err != nil || intendedUse == "" {
+		return current, nil, err
+	}
+	info, err := s.wallet.verifierInfo(ctx, party.ID, intendedUse, s.now())
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting the registration certificate for %s of %s failed: %w", intendedUse, party.ID, err)
+	}
+	return current, info, nil
+}
+
+func (s *Server) accessRegistration(ctx context.Context, party relyingParty) (*registration, error) {
 	s.registrationMu.Lock()
 	defer s.registrationMu.Unlock()
 	key := party.ID + "/" + party.Service
-	current := s.registrations[key]
-	if current == nil {
-		created, err := s.register(ctx, party)
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting the access certificate for %s of %s failed: %w", party.Service, party.ID, err)
-		}
-		current = created
-		s.registrations[key] = current
+	if current := s.registrations[key]; current != nil {
+		return current, nil
 	}
-	if intendedUse == "" {
-		return current, nil, nil
+	created, err := s.register(ctx, party)
+	if err != nil {
+		return nil, fmt.Errorf("getting the access certificate for %s of %s failed: %w", party.Service, party.ID, err)
 	}
-	info, ok := current.verifierInfo[intendedUse]
-	if !ok {
-		var err error
-		info, err = s.wallet.verifierInfo(ctx, party.ID, intendedUse)
-		if err != nil {
-			return nil, nil, fmt.Errorf("getting the registration certificate for %s of %s failed: %w", intendedUse, party.ID, err)
-		}
-		current.verifierInfo[intendedUse] = info
-	}
-	return current, info, nil
+	s.registrations[key] = created
+	return created, nil
 }
 
 func (s *Server) register(ctx context.Context, party relyingParty) (*registration, error) {
@@ -105,19 +103,10 @@ func (s *Server) register(ctx context.Context, party relyingParty) (*registratio
 	// DER encoded leaf certificate.
 	hash := sha256.Sum256(certificate.Raw)
 	return &registration{
-		key:          key,
-		certificate:  certificate.Raw,
-		clientID:     "x509_hash:" + base64.RawURLEncoding.EncodeToString(hash[:]),
-		verifierInfo: map[string]json.RawMessage{},
+		key:         key,
+		certificate: certificate.Raw,
+		clientID:    "x509_hash:" + base64.RawURLEncoding.EncodeToString(hash[:]),
 	}, nil
-}
-
-// forgetRegistration makes the next request ask the registrar again. A wallet
-// with new keys refuses the certificates of the old ones.
-func (s *Server) forgetRegistration() {
-	s.registrationMu.Lock()
-	defer s.registrationMu.Unlock()
-	clear(s.registrations)
 }
 
 // requestObject signs the authorization request with the key of the access

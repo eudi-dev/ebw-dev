@@ -75,13 +75,20 @@ function failedChecks(run) {
     .map((item) => item.name);
 }
 
-// revokeInWallet revokes the credential behind the delegation, which the
-// wallet finds by its status list entry, with the button on its card.
-async function revokeInWallet(credential) {
+// held returns the wallet entry of the credential behind the delegation, which
+// the wallet finds by its status list entry.
+async function held(credential) {
   const entry = credential.status.status_list;
   const credentials = await api("GET", WALLET + "/api/credentials");
-  const presented = credentials.find((held) => held.status && held.status.uri === entry.uri && held.status.idx === entry.idx);
+  const presented = credentials.find((stored) => stored.status && stored.status.uri === entry.uri && stored.status.idx === entry.idx);
   check(presented && presented.status.status === 0, `the wallet holds no valid credential at ${entry.uri} ${entry.idx}`);
+  return presented;
+}
+
+// revokeInWallet revokes the credential behind the delegation with the button
+// on its card.
+async function revokeInWallet(credential) {
+  const presented = await held(credential);
   const page = await open(WALLET);
   // With a long list the activity panel of the wallet covers the card, and
   // a pointer click would hit the panel.
@@ -198,7 +205,20 @@ async function caseFlow(caseID) {
     await runRefusal(page.locator(`#refusal-${variant}`));
   }
   check((await text(page.locator('.rail li[data-node="refusals"] .who'))) === "4 of 5 done", "the rail does not count 4 of 5 refusals as done");
-  await runRefusal(page.locator("#refusal-revoked"));
+  const revoked = page.locator("#refusal-revoked");
+  if ((await held(granted.report.credential)).protected) {
+    // The demo cannot revoke a protected credential of a wallet started with
+    // --demo. It stops the run and issues a new credential.
+    await revoked.locator("button").click();
+    await revoked.locator("button", { hasText: "Run again" }).waitFor({ timeout: 30000 });
+    check((await text(revoked.locator(".outcome"))).includes("Start again for a new delegation"), `refusal revoked on a protected credential: ${await text(revoked.locator(".outcome"))}`);
+    await states(page, `case-${caseID}-protected`);
+    await page.locator("#restart").click();
+    await page.waitForURL(`${DEMO}/cases/${caseID}`);
+    const fresh = await caseRequest(page, caseID, "approve");
+    check(fresh.status === "granted" && !(await held(fresh.report.credential)).protected, `delegation of ${caseID} after the stopped run: ${fresh.status} ${fresh.error_description}`);
+  }
+  await runRefusal(revoked);
   check(await page.locator("#refusals-lock").isVisible(), "no lock after the revoked run");
   check(await page.locator("#act").isDisabled(), "the action stays open after the revoked run");
   check(await page.locator("#refusal-over_limit button").isDisabled(), "the refusals stay open after the revoked run");
@@ -232,7 +252,14 @@ async function demo() {
   await lost.close();
 
   const page = await open(`${DEMO}/cases/supplier`);
-  const granted = await caseRequest(page, "supplier", "approve");
+  let granted = await caseRequest(page, "supplier", "approve");
+  if ((await held(granted.report.credential)).protected) {
+    const stopped = await run(granted.id, "revoked");
+    check(stopped.outcome === "stopped", `revoked run on a protected credential: ${stopped.outcome} ${stopped.reasons}`);
+    await page.locator("#restart").click();
+    await page.waitForURL(`${DEMO}/cases/supplier`);
+    granted = await caseRequest(page, "supplier", "approve");
+  }
   await page.close();
   await revokeInWallet(granted.report.credential);
   const refusedRun = await run(granted.id, "ok");

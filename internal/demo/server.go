@@ -59,8 +59,8 @@ type Server struct {
 	scenarioRequests map[string]*ScenarioRequest
 }
 
-// NewServer builds the server. Trust anchors load on the first use and on
-// demand.
+// NewServer builds the server. Trust anchors load with LoadTrust or on the
+// first use.
 func NewServer(config Config) (*Server, error) {
 	public, err := url.Parse(strings.TrimRight(config.PublicURL, "/"))
 	if err != nil || public.Host == "" {
@@ -111,7 +111,6 @@ func (s *Server) routes() http.Handler {
 
 	mux.HandleFunc("GET /api/config", s.apiConfig)
 	mux.HandleFunc("GET /api/trust", s.apiTrust)
-	mux.HandleFunc("POST /api/trust/reload", s.apiTrustReload)
 	mux.HandleFunc("POST /api/mandates", s.createMandate)
 	mux.HandleFunc("GET /api/mandates/{id}", s.getMandate)
 	mux.HandleFunc("POST /api/mandates/{id}/runs", s.createRun)
@@ -267,6 +266,8 @@ func (s *Server) apiConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// apiTrust names the public URL of the wallet as the source. The server loads
+// the lists over the wallet URL, which browsers may not reach.
 func (s *Server) apiTrust(w http.ResponseWriter, r *http.Request) {
 	if err := s.ensureTrust(r.Context()); err != nil {
 		writeError(w, http.StatusBadGateway, "trust_unavailable", err.Error())
@@ -277,27 +278,27 @@ func (s *Server) apiTrust(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "trust_unavailable", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, summary)
-}
-
-func (s *Server) apiTrustReload(w http.ResponseWriter, r *http.Request) {
-	if err := s.trust.Reload(r.Context()); err != nil {
-		writeError(w, http.StatusBadGateway, "trust_unavailable", err.Error())
-		return
-	}
-	s.forgetRegistration()
-	s.apiTrust(w, r)
+	writeJSON(w, http.StatusOK, struct {
+		trust.Summary
+		Source string `json:"source"`
+	}{summary, s.config.WalletPublicURL})
 }
 
 func (s *Server) LoadTrust(ctx context.Context) error {
 	return s.trust.Reload(ctx)
 }
 
+// ensureTrust loads the trusted lists after a failed load. Its error names no
+// URL. The cause names the internal wallet URL and goes to the log.
 func (s *Server) ensureTrust(ctx context.Context) error {
 	if _, err := s.trust.Summary(); err == nil {
 		return nil
 	}
-	return s.trust.Reload(ctx)
+	if err := s.trust.Reload(ctx); err != nil {
+		log.Printf("loading the trusted lists: %v", err)
+		return errors.New("the trusted lists of the wallet did not load")
+	}
+	return nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

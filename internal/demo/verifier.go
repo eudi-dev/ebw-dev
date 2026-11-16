@@ -59,10 +59,10 @@ func (s *Server) verifierCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Action   string `json:"action"`
-		Amount   string `json:"amount"`
-		Currency string `json:"currency"`
-		Shift    int    `json:"simulate_clock_shift_seconds"`
+		Action          string `json:"action"`
+		Amount          string `json:"amount"`
+		Currency        string `json:"currency"`
+		SimulateExpired bool   `json:"simulate_expired_mandate"`
 	}
 	if !readJSON(w, r, &body) {
 		return
@@ -75,14 +75,12 @@ func (s *Server) verifierCreate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "this verifier only accepts "+strings.Join(verifier.Actions, ", "))
 		return
 	}
-	if body.Shift < 0 || body.Shift > 7*24*3600 {
-		writeError(w, http.StatusBadRequest, "invalid_request", "simulate_clock_shift_seconds must be between 0 and 604800")
-		return
-	}
 	request := &verifierRequest{
 		id: randomID(), verifier: verifier, action: body.Action, amount: body.Amount, currency: body.Currency,
-		nonce: randomID(), created: s.now(), shift: time.Duration(body.Shift) * time.Second,
-		answerState: answerState{state: randomID()},
+		nonce: randomID(), created: s.now(), answerState: answerState{state: randomID()},
+	}
+	if body.SimulateExpired {
+		request.shift = expiredShift
 	}
 	request.result = verifierResult{ID: request.id, Status: "presentation_required", Reasons: []string{}}
 	s.mu.Lock()
@@ -151,7 +149,7 @@ func (s *Server) decide(r *http.Request, request *verifierRequest) verifierResul
 		return result
 	}
 	if err := s.ensureTrust(r.Context()); err != nil {
-		result.Reasons = append(result.Reasons, "The trusted lists of the wallet did not load: "+err.Error()+".")
+		result.Reasons = append(result.Reasons, sentence(err.Error()))
 		return result
 	}
 	// The trusted lists and the status list are live data of the wallet.

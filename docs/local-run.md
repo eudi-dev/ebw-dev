@@ -65,4 +65,4 @@ The flags of `bin/ebw-dev`:
 
 The server answers with and without the path prefix of the public URL. Every page link is relative.
 
-A deployment sets `--wallet-public-url` to the address of the wallet on the internet, such as `https://wallet.example`. `--wallet-url` stays the address of the wallet inside the deployment.
+A deployment sets `--wallet-public-url` to the address of the wallet on the internet, such as `https://wallet.example`. `--wallet-url` stays the address of the wallet inside the deployment. When `--wallet-public-url` is set, pages and API answers never show `--wallet-url`.

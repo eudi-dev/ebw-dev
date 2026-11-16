@@ -317,7 +317,6 @@ func (s *Store) ResolveIssuer(lists []string, now time.Time) func(header, claims
 
 type Summary struct {
 	LoadedAt time.Time     `json:"loaded_at"`
-	Source   string        `json:"source"`
 	Lists    []ListSummary `json:"lists"`
 }
 
@@ -333,7 +332,7 @@ func (s *Store) Summary() (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
-	summary := Summary{LoadedAt: snap.loadedAt, Source: s.walletURL}
+	summary := Summary{LoadedAt: snap.loadedAt}
 	for id, list := range snap.lists {
 		item := ListSummary{ID: id, Type: list.Type, NextUpdate: list.NextUpdate, Issuers: []string{}}
 		for _, certificate := range list.Issuance {

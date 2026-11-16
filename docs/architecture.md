@@ -33,7 +33,7 @@ Deviations from the JSON schemas of the rulebooks:
 
 ## Trust
 
-A verifier holds no pinned certificate. At start and on demand it loads from the wallet:
+A verifier holds no pinned certificate. At start it loads from the wallet. After a failed load it tries again on the next request. It loads these parts:
 
 1. The wallet CA from `/api/certificates/ca`.
 2. The index of trusted lists from `/api/trustlists` and each list. Every list is a JWT in the JSON binding of ETSI TS 119 602. Its signature must chain to the wallet CA.
@@ -52,9 +52,12 @@ The registrar of the wallet lists Acme Logistics (`DETEST.00000471`) with the se
 The agent service gets its certificates from the registrar over HTTP:
 
 1. Before its first request it creates a P-256 key and sends a certificate signing request to `/api/registrar/access-certificates`. The registrar answers with an access certificate under the relying party access CA.
-2. For each intended use it asks `/api/registrar/registration-certificates` for a registration certificate. The answer holds the `verifier_info` of the request.
+2. For each mandate request it reads the registration certificates of the relying party from `GET /api/registrar/registration-certificates`.
+3. It picks the certificate of the intended use. It skips revoked and expired certificates. The `verifierInfo` of the certificate becomes the `verifier_info` of the request.
 
-The client identifier is `x509_hash:` with the SHA-256 hash of the access certificate. The agent service keeps the key and the certificates in memory. `POST api/trust/reload` drops them, and the next request asks the registrar again.
+The wallet issues the registration certificates at startup for every intended use in `wallet-config/relying-parties.yaml`.
+
+The client identifier is `x509_hash:` with the SHA-256 hash of the access certificate. The agent service keeps the key and the access certificate in memory until the server stops. A demo reset of the wallet keeps the relying party access CA, so the certificate stays valid. The reset issues new registration certificates, and the agent service reads them for each request.
 
 The wallet shows the service name Acme agent service and the purpose of the intended use in the consent.
 
@@ -108,14 +111,16 @@ The verifier answers with a report of 3 links: authority credential, mandate and
 | Run | Change | Failed check |
 | --- | --- | --- |
 | Amount above the limit | The agent asks for 7500.00 EUR | `policy_limit` |
-| Expired mandate | The demo sets the clock of the agent and the verifier past the end of the mandate. The member `simulate_clock_shift_seconds` of the business request carries the shift | `mandate_validity` |
+| Expired mandate | The demo sets the clock of the agent and the verifier 65 minutes ahead. The mandate has expired by then. The business request carries `"simulate_expired_mandate": true` | `mandate_validity` |
 | Wrong verifier | The agent presents the mandate to Crate Trading. The mandate has no audience for this verifier | `policy_audience` |
 | Tampered chain | The agent raises the limit inside the delegate payload disclosure | `one_delegate_payload` |
 | Revoked credential | The demo revokes the credential under the mandate in the wallet before the run | `status` |
 
-The clock shift is a control of the demo. A real verifier has no such parameter.
+`simulate_expired_mandate` is a control of the demo. A real verifier has no such parameter.
 
-After the revoked run the demo has the wallet issue a fresh credential of the same type. The mandate on the revoked credential stays refused.
+After the revoked run the demo has the wallet issue a fresh credential of the same type when none is valid. The mandate on the revoked credential stays refused.
+
+A wallet started with `--demo` protects the credentials of its wallet file. Their status cannot change. When the mandate rests on such a credential, the revoked run stops with the outcome `stopped` before the agent acts. The demo issues a new credential of the type. A new mandate rests on it, and the next revoked run is refused.
 
 ## Specifications
 

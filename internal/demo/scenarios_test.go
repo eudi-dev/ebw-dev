@@ -122,6 +122,50 @@ func TestRevokedVariantRevokesOnlyThePresentedPowerOfAttorney(t *testing.T) {
 	}
 }
 
+// The issuer cannot revoke a protected power of attorney. The demo issues a new
+// one, and the wallet presents the newest.
+func TestRevokedVariantOnAProtectedPowerOfAttorney(t *testing.T) {
+	s := startScenarios(t, "")
+	s.wallet.Protect()
+	protected := s.wallet.Credentials()
+	answer := s.scenario("poa", demo.VariantRevoked)
+	if answer.Status != demo.ScenarioRefused || !slices.ContainsFunc(answer.Notes, func(note string) bool { return strings.Contains(note, "are protected") }) {
+		t.Fatalf("status %q, reasons %v, notes %v", answer.Status, answer.Reasons, answer.Notes)
+	}
+	issued := s.wallet.Credentials()[0]
+	if issued.Type != demo.TypePowerOfAttorney || !s.wallet.Revoked(issued.Index) {
+		t.Errorf("the demo revoked no new power of attorney: %s at index %d", issued.Type, issued.Index)
+	}
+	for _, credential := range protected {
+		if s.wallet.Revoked(credential.Index) {
+			t.Errorf("the demo revoked the protected %s at index %d", credential.Type, credential.Index)
+		}
+	}
+}
+
+// A visitor revoked the new power of attorney before the wallet answered. The
+// wallet then presents a protected one, which the issuer cannot revoke.
+func TestRevokedVariantStopsOnAPresentedProtectedCredential(t *testing.T) {
+	s := startScenarios(t, "")
+	s.wallet.Protect()
+	var created demo.ScenarioRequest
+	s.call(http.MethodPost, "/api/scenarios/poa/requests", `{"variant":"`+demo.VariantRevoked+`"}`, http.StatusCreated, &created)
+	s.wallet.Revoke(s.wallet.Credentials()[0].Index)
+	if _, err := s.wallet.Present(http.DefaultClient, created.Request.WalletURL); err != nil {
+		t.Fatal(err)
+	}
+	var answer demo.ScenarioRequest
+	s.call(http.MethodGet, "/api/scenarios/poa/requests/"+created.ID, "", http.StatusOK, &answer)
+	if answer.Status != demo.ScenarioStopped || len(answer.Reasons) != 1 || !strings.Contains(answer.Reasons[0], "protected") || len(failedChecks(answer)) != 0 {
+		t.Fatalf("status %q, reasons %v, failed checks %v", answer.Status, answer.Reasons, failedChecks(answer))
+	}
+	for _, credential := range s.wallet.Credentials() {
+		if credential.Protected && s.wallet.Revoked(credential.Index) {
+			t.Errorf("the demo revoked the protected %s at index %d", credential.Type, credential.Index)
+		}
+	}
+}
+
 func TestExpiredVariantActsAfterTheEndDate(t *testing.T) {
 	s := startScenarios(t, "")
 	answer := s.scenario("poa", demo.VariantExpired)
@@ -242,7 +286,7 @@ func TestIssuerOffers(t *testing.T) {
 	for _, configuration := range configurations {
 		var offer demo.IssuerOffer
 		s.call(http.MethodPost, "/api/offers", `{"configuration":"`+configuration+`"}`, http.StatusCreated, &offer)
-		if !strings.HasPrefix(offer.WalletURL, s.wallet.URL+"/credential-offer?credential_offer_uri=") {
+		if !strings.HasPrefix(offer.WalletURL, walletPublicURL+"/credential-offer?credential_offer_uri=") {
 			t.Errorf("%s: wallet URL %q", configuration, offer.WalletURL)
 		}
 		if ids, _ := offer.Offer["credential_configuration_ids"].([]any); len(ids) != 1 || ids[0] != configuration {

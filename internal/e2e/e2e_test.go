@@ -83,7 +83,7 @@ func run(t *testing.T, mandate demo.Mandate, variant string) demo.Run {
 	t.Helper()
 	var result demo.Run
 	call(t, http.MethodPost, demoURL+"/api/mandates/"+mandate.ID+"/runs", map[string]string{"variant": variant}, &result)
-	if result.Report == nil {
+	if result.Report == nil && !(variant == demo.VariantRevoked && result.Outcome == "stopped") {
 		t.Fatalf("run without report: %q %v", result.Outcome, result.Reasons)
 	}
 	return result
@@ -128,12 +128,17 @@ func TestDelegation(t *testing.T) {
 }
 
 // The demo revokes the credential under the mandate. The verifier refuses at
-// the status check, and a new mandate rests on a fresh credential.
+// the status check, and a new mandate rests on a fresh credential. A wallet
+// started with --demo protects its file credentials. The demo then stops the
+// first run and issues a credential it can revoke.
 func TestRevokedCredential(t *testing.T) {
 	for _, caseID := range []string{"supplier", "internal"} {
 		t.Run(caseID, func(t *testing.T) {
-			mandate := granted(t, caseID)
-			result := run(t, mandate, demo.VariantRevoked)
+			result := run(t, granted(t, caseID), demo.VariantRevoked)
+			if result.Outcome == "stopped" {
+				t.Logf("stopped: %v", result.Reasons)
+				result = run(t, granted(t, caseID), demo.VariantRevoked)
+			}
 			if failed := dsdtest.Failed(result.Report); result.Outcome != "refused" || !slices.Equal(failed, []string{dsdjwt.CheckStatus}) {
 				t.Fatalf("outcome %q, failed checks %v, want only %s", result.Outcome, failed, dsdjwt.CheckStatus)
 			}
@@ -182,7 +187,7 @@ func TestScenarios(t *testing.T) {
 			if request.Status != test.status || !slices.Equal(failed, want) {
 				t.Fatalf("status %q, failed checks %v, reasons %v", request.Status, failed, request.Reasons)
 			}
-			t.Logf("%s: %v", request.Status, request.Reasons)
+			t.Logf("%s: %v %v", request.Status, request.Reasons, request.Notes)
 		})
 	}
 }

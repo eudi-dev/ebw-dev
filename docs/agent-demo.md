@@ -36,6 +36,6 @@ Each case page guides through 3 steps:
 2. You approve the delegation in the wallet. After a decline the agent has no delegation. "Ask again" starts a new request.
 3. The agent acts at the verifier.
 
-The 5 refusals follow the steps. Each one states the expected result and the result of the server. A progress rail shows the state, for example "5 refusals" before the first run and "1 of 5 done" after it. The run with a revoked credential revokes the credential in the wallet. The page then asks for a new delegation.
+The 5 refusals follow the steps. Each one states the expected result and the result of the server. A progress rail shows the state, for example "5 refusals" before the first run and "1 of 5 done" after it. The run with a revoked credential revokes the credential in the wallet. The page then asks for a new delegation. The public demo protects its Acme credentials. A delegation that rests on one of them stops the run before the agent acts. The demo issues a new credential. The page then asks for a new delegation and a second run.
 
 Breadcrumbs lead back to the map. A box at the end of each page points to the next stop on the map.

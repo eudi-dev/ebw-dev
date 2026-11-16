@@ -40,6 +40,7 @@ type Stored struct {
 	Issued      time.Time
 	IssuerJWT   string
 	Disclosures []string
+	Protected   bool
 }
 
 type template struct {
@@ -70,6 +71,7 @@ type Wallet struct {
 
 	configurations []string
 	offers         []string
+	registrations  []registrationCertificate
 }
 
 type provider struct {
@@ -142,7 +144,7 @@ func New() *Wallet {
 	mux.HandleFunc("GET /api/trustlists/{id}", wallet.serveList)
 	mux.HandleFunc("GET /api/statuslist", wallet.serveStatus)
 	mux.HandleFunc("POST /api/registrar/access-certificates", wallet.issueAccessCertificate)
-	mux.HandleFunc("POST /api/registrar/registration-certificates", wallet.issueRegistrationCertificate)
+	mux.HandleFunc("GET /api/registrar/registration-certificates", wallet.serveRegistrationCertificates)
 	mux.HandleFunc("GET /api/credentials", wallet.serveCredentials)
 	mux.HandleFunc("POST /api/credentials/{id}/status", wallet.setStatus)
 	mux.HandleFunc("POST /api/issue", wallet.issueFromTemplate)
@@ -160,6 +162,14 @@ func (w *Wallet) SetPlain(plain bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.plain = plain
+}
+
+func (w *Wallet) Protect() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i := range w.credentials {
+		w.credentials[i].Protected = true
+	}
 }
 
 func (w *Wallet) Revoke(index int) {

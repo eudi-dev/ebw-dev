@@ -82,27 +82,69 @@ func hashClientID(der []byte) string {
 	return "x509_hash:" + base64.RawURLEncoding.EncodeToString(hash[:])
 }
 
-func (w *Wallet) issueRegistrationCertificate(rw http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Identifier  string `json:"identifier"`
-		IntendedUse string `json:"intendedUseIdentifier"`
+// registrationCertificate is an entry of GET
+// /api/registrar/registration-certificates.
+type registrationCertificate struct {
+	Identifier   string `json:"identifier"`
+	IntendedUse  string `json:"intendedUse"`
+	Expires      int64  `json:"expires"`
+	Revoked      bool   `json:"revoked,omitempty"`
+	VerifierInfo string `json:"verifierInfo,omitempty"`
+}
+
+// Register issues a registration certificate for each intended use of a
+// relying party. The wallet does this at startup for every intended use in
+// wallet-config/relying-parties.yaml.
+func (w *Wallet) Register(identifier string, intendedUses ...string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, intendedUse := range intendedUses {
+		token, err := dsdjwt.SignES256(w.accessKey,
+			map[string]any{"alg": "ES256", "typ": "rc-wrp+jwt"},
+			map[string]any{"sub": identifier, "intended_use_id": intendedUse, "iat": time.Now().Unix()})
+		if err != nil {
+			panic(err)
+		}
+		info, _ := json.Marshal([]map[string]string{{
+			"format": "registration_cert",
+			"data":   base64.RawURLEncoding.EncodeToString([]byte(token)),
+		}})
+		w.registrations = append(w.registrations, registrationCertificate{
+			Identifier: identifier, IntendedUse: intendedUse,
+			Expires: time.Now().Add(24 * time.Hour).Unix(), VerifierInfo: string(info),
+		})
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Identifier == "" || body.IntendedUse == "" {
-		writeError(rw, http.StatusBadRequest, "invalid_request", "identifier and intendedUseIdentifier are required")
-		return
+}
+
+func (w *Wallet) RevokeRegistration(identifier, intendedUse string) {
+	w.changeRegistrations(identifier, intendedUse, func(entry *registrationCertificate) { entry.Revoked = true })
+}
+
+func (w *Wallet) ExpireRegistration(identifier, intendedUse string) {
+	w.changeRegistrations(identifier, intendedUse, func(entry *registrationCertificate) { entry.Expires = time.Now().Add(-time.Minute).Unix() })
+}
+
+func (w *Wallet) changeRegistrations(identifier, intendedUse string, change func(*registrationCertificate)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for i := range w.registrations {
+		if w.registrations[i].Identifier == identifier && w.registrations[i].IntendedUse == intendedUse {
+			change(&w.registrations[i])
+		}
 	}
-	token, err := dsdjwt.SignES256(w.accessKey,
-		map[string]any{"alg": "ES256", "typ": "rc-wrp+jwt"},
-		map[string]any{"sub": body.Identifier, "intended_use_id": body.IntendedUse, "iat": time.Now().Unix()})
-	if err != nil {
-		writeError(rw, http.StatusInternalServerError, "server_error", err.Error())
-		return
+}
+
+func (w *Wallet) serveRegistrationCertificates(rw http.ResponseWriter, r *http.Request) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	identifier := r.URL.Query().Get("identifier")
+	entries := []registrationCertificate{}
+	for _, entry := range w.registrations {
+		if entry.Identifier == identifier {
+			entries = append(entries, entry)
+		}
 	}
-	info, _ := json.Marshal([]map[string]string{{
-		"format": "registration_cert",
-		"data":   base64.RawURLEncoding.EncodeToString([]byte(token)),
-	}})
-	writeJSON(rw, http.StatusCreated, map[string]string{"registrationCertificate": token, "verifierInfo": string(info)})
+	writeJSON(rw, http.StatusOK, entries)
 }
 
 // signedRequest holds the claims of a request object that the wallet reads.
@@ -198,14 +240,18 @@ func (w *Wallet) serveCredentials(rw http.ResponseWriter, _ *http.Request) {
 		if w.revoked[stored.Index] {
 			status = 1
 		}
-		credentials = append(credentials, map[string]any{
+		credential := map[string]any{
 			"id":         stored.ID,
 			"vct":        stored.Type,
 			"issued_at":  stored.Issued.UTC().Format(time.RFC3339Nano),
 			"valid_from": stored.Issued.UTC().Format(time.RFC3339Nano),
 			"expires_at": stored.Issued.AddDate(1, 0, 0).UTC().Format(time.RFC3339Nano),
 			"status":     map[string]any{"uri": w.URL + "/api/statuslist", "idx": stored.Index, "status": status},
-		})
+		}
+		if stored.Protected {
+			credential["protected"] = true
+		}
+		credentials = append(credentials, credential)
 	}
 	writeJSON(rw, http.StatusOK, credentials)
 }
@@ -222,6 +268,10 @@ func (w *Wallet) setStatus(rw http.ResponseWriter, r *http.Request) {
 	defer w.mu.Unlock()
 	for _, stored := range w.credentials {
 		if stored.ID == r.PathValue("id") {
+			if stored.Protected {
+				writeError(rw, http.StatusForbidden, "forbidden", "credential is protected and its status can only be changed through the wallet file")
+				return
+			}
 			w.revoked[stored.Index] = body.Status != 0
 			writeJSON(rw, http.StatusOK, map[string]int{"index": stored.Index, "status": body.Status})
 			return

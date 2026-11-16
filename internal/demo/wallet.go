@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -20,6 +21,9 @@ type walletCredential struct {
 	ValidFrom time.Time     `json:"valid_from,omitzero"`
 	ExpiresAt time.Time     `json:"expires_at,omitzero"`
 	Status    *walletStatus `json:"status"`
+	// Protected credentials come from the wallet file of a wallet started
+	// with --demo. The wallet refuses to change their status.
+	Protected bool `json:"protected"`
 }
 
 // walletStatus is the Token Status List entry of a wallet credential.
@@ -36,6 +40,8 @@ func (c walletCredential) valid(now time.Time) bool {
 	}
 	return c.Status == nil || c.Status.Status == 0
 }
+
+var errWalletUnreachable = errors.New("the wallet is not reachable")
 
 type walletError struct {
 	Status      int
@@ -68,9 +74,12 @@ func (c walletClient) call(ctx context.Context, method, path string, body, into 
 		}
 		reader = bytes.NewReader(encoded)
 	}
+	// These errors name the internal wallet URL. Clients get
+	// errWalletUnreachable and the log gets the cause.
 	request, err := http.NewRequestWithContext(ctx, method, c.base+path, reader)
 	if err != nil {
-		return err
+		log.Printf("calling the wallet: %v", err)
+		return errWalletUnreachable
 	}
 	request.Header.Set("Accept", "application/json")
 	if body != nil {
@@ -78,12 +87,14 @@ func (c walletClient) call(ctx context.Context, method, path string, body, into 
 	}
 	response, err := c.http.Do(request)
 	if err != nil {
-		return fmt.Errorf("the wallet is not reachable: %w", err)
+		log.Printf("calling the wallet: %v", err)
+		return errWalletUnreachable
 	}
 	defer response.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
 	if err != nil {
-		return err
+		log.Printf("calling the wallet: %v", err)
+		return errWalletUnreachable
 	}
 	if response.StatusCode >= 300 {
 		problem := &walletError{Status: response.StatusCode}
@@ -126,24 +137,26 @@ func (c walletClient) accessCertificate(ctx context.Context, identifier, service
 	return issued, err
 }
 
-// verifierInfo has the registrar issue a registration certificate for the
-// intended use. It returns the verifier_info of a request (OpenID4VP 1.0
-// §5.1).
-func (c walletClient) verifierInfo(ctx context.Context, identifier, intendedUse string) (json.RawMessage, error) {
-	var issued struct {
+// verifierInfo returns the verifier_info of a request (OpenID4VP 1.0 §5.1)
+// from the registration certificate of the intended use. The wallet issues
+// these certificates at startup for wallet-config/relying-parties.yaml.
+func (c walletClient) verifierInfo(ctx context.Context, identifier, intendedUse string, now time.Time) (json.RawMessage, error) {
+	var certificates []struct {
+		IntendedUse  string `json:"intendedUse"`
+		Revoked      bool   `json:"revoked"`
+		Expires      int64  `json:"expires"`
 		VerifierInfo string `json:"verifierInfo"`
 	}
-	err := c.call(ctx, http.MethodPost, "/api/registrar/registration-certificates", map[string]string{
-		"identifier":            identifier,
-		"intendedUseIdentifier": intendedUse,
-	}, &issued)
+	err := c.call(ctx, http.MethodGet, "/api/registrar/registration-certificates?"+url.Values{"identifier": {identifier}}.Encode(), nil, &certificates)
 	if err != nil {
 		return nil, err
 	}
-	if !json.Valid([]byte(issued.VerifierInfo)) {
-		return nil, errors.New("the registrar returned no verifier_info")
+	for _, certificate := range certificates {
+		if certificate.IntendedUse == intendedUse && !certificate.Revoked && now.Unix() < certificate.Expires && certificate.VerifierInfo != "" {
+			return json.RawMessage(certificate.VerifierInfo), nil
+		}
 	}
-	return json.RawMessage(issued.VerifierInfo), nil
+	return nil, errors.New("no valid registration certificate")
 }
 
 // credentialOffer is the answer of the wallet's issuer to POST

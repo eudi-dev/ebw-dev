@@ -722,6 +722,9 @@ function scenarioPage(scenarioID) {
     } else if (request.status === "refused") {
       card.dataset.state = "done";
       banner(node, "fail", "Refused as expected", reasons(request.reasons), ...notes(request), ...details(request));
+    } else if (request.status === "stopped") {
+      delete card.dataset.state;
+      banner(node, "wait", "The request stopped before " + asker + " decided.", reasons(request.reasons), ...notes(request), ...details(request));
     } else {
       card.dataset.state = "unexpected";
       banner(node, "fail", "Accepted. " + asker + " should have refused it.", "", ...notes(request), ...details(request));
@@ -969,22 +972,18 @@ function issuerPage() {
 
 async function trustPanel() {
   const panel = byId("trust");
-  async function load(method, path) {
-    try {
-      const summary = await call(method, path);
-      const list = element("dl", "facts");
-      fact(list, "Source", summary.source, true);
-      fact(list, "Loaded at", instant(summary.loaded_at));
-      for (const entry of summary.lists) {
-        fact(list, entry.id, entry.issuers.length ? entry.issuers.join(", ") : "No issuers");
-      }
-      panel.replaceChildren(list);
-    } catch (error) {
-      panel.textContent = "The trusted lists did not load. " + error.message;
+  try {
+    const summary = await call("GET", "api/trust");
+    const list = element("dl", "facts");
+    fact(list, "Source", summary.source, true);
+    fact(list, "Loaded at", instant(summary.loaded_at));
+    for (const entry of summary.lists) {
+      fact(list, entry.id, entry.issuers.length ? entry.issuers.join(", ") : "No issuers");
     }
+    panel.replaceChildren(list);
+  } catch {
+    panel.textContent = "The trusted lists of the wallet did not load. Reload the page to try again.";
   }
-  byId("trust-reload").addEventListener("click", () => load("POST", "api/trust/reload"));
-  await load("GET", "api/trust");
 }
 
 // A page from the back and forward cache shows an old state. The wallet
