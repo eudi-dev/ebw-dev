@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binaries
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            GOOS="${target%/*}"
+            GOARCH="${target#*/}"
+            output="ebw-dev-${GITHUB_REF_NAME}-${GOOS}-${GOARCH}"
+            [ "$GOOS" = windows ] && output="${output}.exe"
+            CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -trimpath \
+              -ldflags "-s -w -X main.version=${VERSION}" -o "dist/${output}" ./cmd/ebw-dev
+          done
+          (cd dist && sha256sum -- * > checksums.txt)
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+
+      # A tag with a suffix, such as v0.1.0-beta.1, is a prerelease.
+      - name: Create the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ebw-dev ${{ env.VERSION }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ !contains(github.ref_name, '-') }}
+          files: dist/*

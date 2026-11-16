@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./... && go vet -tags e2e ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      - name: Lint
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
+          golangci-lint run ./...
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # The wallet runs at the eudi-dev version that go.mod pins.
+      - name: Install the eudi-dev wallet
+        run: go install "github.com/eudi-dev/eudi-dev/v3@$(go list -m -f '{{.Version}}' github.com/eudi-dev/eudi-dev/v3)"
+
+      - name: Start the wallet and the demo
+        run: |
+          WALLET_BIN="$(go env GOPATH)/bin/eudi-dev" scripts/run-local.sh >run-local.log 2>&1 &
+          for _ in $(seq 1 120); do
+            curl -fsS http://localhost:28090/ >/dev/null 2>&1 && exit 0
+            sleep 1
+          done
+          cat run-local.log
+          exit 1
+
+      - name: Run the end-to-end tests
+        run: scripts/e2e.sh
+
+      - name: Show the logs
+        if: failure()
+        run: cat run-local.log .state/wallet.log
