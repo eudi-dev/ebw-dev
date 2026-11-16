@@ -31,6 +31,7 @@ func main() {
 	publicURL := flag.String("public-url", env("EBW_DEV_PUBLIC_URL", "http://localhost:28090"), "base URL for browsers and the wallet, with an optional path prefix")
 	walletURL := flag.String("wallet-url", env("EBW_DEV_WALLET_URL", "http://localhost:28085"), "base URL of the business wallet for this server")
 	walletPublicURL := flag.String("wallet-public-url", env("EBW_DEV_WALLET_PUBLIC_URL", ""), "base URL of the business wallet for browsers (default: the wallet URL)")
+	imprintURL := flag.String("imprint-url", env("EBW_DEV_IMPRINT_URL", ""), "URL of the imprint page, linked in the footer")
 	brandDir := flag.String("brand-dir", env("EBW_DEV_BRAND_DIR", "brand"), "directory with logo.svg")
 	flag.Parse()
 
@@ -38,6 +39,7 @@ func main() {
 		PublicURL:       *publicURL,
 		WalletURL:       *walletURL,
 		WalletPublicURL: *walletPublicURL,
+		ImprintURL:      *imprintURL,
 		BrandDir:        *brandDir,
 		Version:         version,
 	})

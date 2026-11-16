@@ -33,6 +33,7 @@ type Config struct {
 	PublicURL       string
 	WalletURL       string
 	WalletPublicURL string
+	ImprintURL      string
 	BrandDir        string
 	Version         string
 }
@@ -166,6 +167,7 @@ type pageData struct {
 	Next            nextStep
 	HasLogo         bool
 	WalletPublicURL string
+	ImprintURL      string
 	Version         string
 }
 
@@ -192,7 +194,7 @@ func (s *Server) page(name string) http.HandlerFunc {
 		data := pageData{
 			BasePath: s.basePath, Page: kind, Cases: cases, Stranger: verifiers[strangerID],
 			Scenarios: scenarios, Offers: offerTypes,
-			HasLogo: s.logoPath() != "", WalletPublicURL: s.config.WalletPublicURL, Version: s.config.Version,
+			HasLogo: s.logoPath() != "", WalletPublicURL: s.config.WalletPublicURL, ImprintURL: s.config.ImprintURL, Version: s.config.Version,
 		}
 		if id := r.PathValue("case"); id != "" {
 			index := slices.IndexFunc(data.Cases, func(c Case) bool { return c.ID == id })

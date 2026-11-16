@@ -110,7 +110,6 @@ header.site nav a {
 }
 
 header.site nav a:hover { color: var(--band-text); background: var(--band-hover); }
-header.site nav a[aria-current] { color: var(--band-accent); background: var(--band-hover); font-weight: 600; }
 
 header.site nav .to-wallet {
   display: inline-flex;
@@ -379,6 +378,7 @@ a.decoder { display: inline-block; margin: 0.5rem 0 0.2rem; font-size: 0.92rem; 
 .crumbs a { color: var(--link); }
 
 footer.site p:last-child { overflow-wrap: anywhere; }
+footer.site a { margin-left: 0.75rem; color: inherit; }
 
 @media (max-width: 40rem) {
   .step::before { width: 1.75rem; height: 1.75rem; }

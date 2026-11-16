@@ -412,6 +412,20 @@ func TestFooterShowsTheEbwDevVersion(t *testing.T) {
 	}
 }
 
+func TestFooterLinksTheImprint(t *testing.T) {
+	server, err := demo.NewServer(demo.Config{PublicURL: "http://localhost:28090", WalletURL: "http://localhost:28085", ImprintURL: "https://wallet.example/imprint"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/", "/cases/supplier", "/scenarios/poa", "/issuer"} {
+		recorder := httptest.NewRecorder()
+		server.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if !strings.Contains(recorder.Body.String(), `<a href="https://wallet.example/imprint">Imprint</a>`) {
+			t.Errorf("%s: the footer does not link the imprint", path)
+		}
+	}
+}
+
 func TestVerifierTakesOneResponsePerRequest(t *testing.T) {
 	s := start(t, "")
 	var created struct {

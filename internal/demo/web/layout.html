@@ -13,16 +13,15 @@
       <span class="edition">BUSINESS</span>
       <span class="demo">Demo</span>
     </a>
-    <nav aria-label="Pages">
-      <a href="./"{{if eq .Page "index"}} aria-current="page"{{end}}>Map</a>
-      {{if ne .Page "index"}}<a class="to-wallet" href="{{.WalletPublicURL}}">Wallet<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5l-7 7"/></svg></a>{{end}}
-    </nav>
+    {{if ne .Page "index"}}<nav aria-label="Pages">
+      <a class="to-wallet" href="{{.WalletPublicURL}}">Wallet<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5l-7 7"/></svg></a>
+    </nav>{{end}}
   </div>
 </header>{{end}}
 
 {{define "footer"}}<footer class="site">
   <p>This is a test setup. All people and companies are made up. Every credential is test data.</p>
-  <p>ebw-dev {{.Version}}</p>
+  <p>ebw-dev {{.Version}}{{if .ImprintURL}} <a href="{{.ImprintURL}}">Imprint</a>{{end}}</p>
 </footer>{{end}}
 
 {{define "crumbs"}}<p class="crumbs"><a href="./">Map</a> › {{.}}</p>{{end}}

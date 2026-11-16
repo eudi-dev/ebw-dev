@@ -61,6 +61,7 @@ The flags of `bin/ebw-dev`:
 | `--public-url` | `EBW_DEV_PUBLIC_URL` | `http://localhost:28090` | Base URL for browsers and the wallet. It may carry a path prefix such as `/agents` |
 | `--wallet-url` | `EBW_DEV_WALLET_URL` | `http://localhost:28085` | Base URL of the wallet for the server |
 | `--wallet-public-url` | `EBW_DEV_WALLET_PUBLIC_URL` | The wallet URL | Base URL of the wallet for browsers. Every link to the wallet uses it |
+| `--imprint-url` | `EBW_DEV_IMPRINT_URL` | None | URL of the imprint page. The footer links to it |
 | `--brand-dir` | `EBW_DEV_BRAND_DIR` | `brand` | Directory with `logo.svg` |
 
 The server answers with and without the path prefix of the public URL. Every page link is relative.
